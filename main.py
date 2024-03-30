@@ -106,4 +106,22 @@ print(y.shape)
 # Make logistic regression model and print coefficients
 logreg = LogisticRegression(random_state=16)
 logreg.fit(X, np.ravel(y))
-print("Coefficients: " + str(logreg.coef_))
+print("Coefficients for trb, ast, strl, blk, pts: " + str(logreg.coef_))
+
+X2 = scaled_df[['TRB', 'AST', 'PTS']].to_numpy()
+# print("PTS, AST, TRB: ", X.shape)
+reg2 = LogisticRegression(random_state=16)
+reg2.fit(X2, np.ravel(y))
+print("Coefficients for trb, ast, pts: " + str(reg2.coef_))
+
+X3 = scaled_df[['AST', 'PTS']].to_numpy()
+# print("PTS, AST, TRB: ", X.shape)
+reg3 = LogisticRegression(random_state=16)
+reg3.fit(X3, np.ravel(y))
+print("Coefficients for ast, pts: " + str(reg3.coef_))
+
+X4 = scaled_df[["FT",  "FTA", "FT%"]].to_numpy()
+# print("PTS, AST, TRB: ", X.shape)
+reg4 = LogisticRegression(random_state=16)
+reg4.fit(X4, np.ravel(y))
+print("Coefficients for ft, fta, ft%: " + str(reg4.coef_))
