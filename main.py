@@ -3,18 +3,16 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+# read data from csv
 df = pd.read_csv('2022-2023 NBA Player Stats - Regular.csv', encoding='ISO-8859-1', sep=";")
-
-print(df.head())
-print(df.shape)
-
-# Keep only TOT (total) stats for players on multiple teams
+# keep only TOT (total) stats for players on multiple teams
 df = df.drop_duplicates('Player')
 
-# Some Players' name have question mark
+# some players' names have question marks
 rows_with_question_mark = df[df['Player'].str.contains('\?', regex=True)]
-print(rows_with_question_mark)
-# Correct their names manually
+# correct their names manually
 df.at[49, 'Player'] = 'Davis Bertans'
 df.at[62, 'Player'] = 'Bogdan Bogdanovic'
 df.at[63, 'Player'] = 'Bojan Bogdanovic'
@@ -31,97 +29,108 @@ df.at[551, 'Player'] = 'Dario Saric'
 df.at[614, 'Player'] = 'Jonas Valanciunas'
 df.at[622, 'Player'] = 'Nikola Vucevic'
 
-# check null values
-null_counts = df.isnull().sum()
-print(null_counts)
+# function to run logistic regression
+def run_logistic_regression(df, stats):
+    # lists the stats used
+    print("Stats: " + str(stats))
 
-# Standardization
-scaler = StandardScaler()
-# Players, tm, pos are string
-players = df['Player']
-pos = df['Pos']
-team = df['Tm']
-rank = df['Rk']
-df_numeric = df.drop(columns=['Rk', 'Player', "Pos", 'Tm'])
-scaled_numeric = scaler.fit_transform(df_numeric)
-scaled_df = pd.DataFrame(scaled_numeric, index=df.index, columns=df_numeric.columns)
+    # scales the data
+    df_scaled = scale(df)
 
-# combine new columns
-new_columns_df = pd.DataFrame({'Rk': rank, 'Player': players, 'Pos': pos, 'Tm': team})
-scaled_df = pd.concat([new_columns_df, scaled_df], axis=1)
-print(scaled_df)
+    # creates features and target arrays
+    X = df_scaled[stats].to_numpy()
+    y = df_scaled[['allstar_selected']].to_numpy()
 
+    # fits arrays to logistic regression
+    reg = LogisticRegression(random_state=16)
+    reg.fit(X, np.ravel(y))
 
-# PCA( if needed)
-# pca = PCA()
-# pca.fit(scaled_df.drop(columns=['Rk', 'Player', "Pos", 'Tm']))
-# explained_variance = pca.explained_variance_ratio_
-# print(explained_variance)
+    # prints coefficients
+    print("Coefficients: " + str(reg.coef_))
+    y_pred = reg.predict(X)
 
-# Add new column "allstar_selected"
-scaled_df['allstar_selected'] = 0
-# Update allstar list
-selected_name_list_2023 = ["Kyrie Irving",
-                           "Donovan Mitchell",
-                           "Giannis Antetokounmpo",
-                           "Kevin Durant",
-                           "Jayson Tatum",
-                           "Jaylen Brown",
-                           "DeMar DeRozan",
-                           "Tyrese Haliburton",
-                           "Jrue Holiday",
-                           "Julius Randle",
-                           "Bam Adebayo",
-                           "Joel Embiid",
-                           "Pascal Siakam",
-                           "Stephen Curry",
-                           "Luka Doncic",
-                           "Nikola Jokic",
-                           "LeBron James",
-                           "Zion Williamson",
-                           "Shai Gilgeous-Alexander",
-                           "Damian Lillard",
-                           "Ja Morant",
-                           "Paul George",
-                           "Jaren Jackson Jr.",
-                           "Lauri Markkanen",
-                           "Domantas Sabonis",
-                           "Anthony Edwards",
-                           "De'Aaron Fox"]
-scaled_df.loc[scaled_df['Player'].isin(selected_name_list_2023), 'allstar_selected'] = 1
+    # prints accuracy on training set
+    score = accuracy_score(y, y_pred)
+    print("Accuracy on training set: " + str(score))
+    
+    # newline for organization
+    print("")
 
-print(scaled_df.loc[scaled_df['allstar_selected'] == 1])
+# function to standardize data
+def scale(df):
+    scaler = StandardScaler()
+    
+    # excludes non-continuous data
+    players = df['Player']
+    pos = df['Pos']
+    team = df['Tm']
+    rank = df['Rk']
+    allstar_selected = df['allstar_selected']
+    df_numeric = df.drop(columns=['Rk', 'Player', "Pos", 'Tm', 'allstar_selected'])
 
-# saved as csv file
-scaled_df.to_csv('2022-2023 NBA Player Stats cleaned.csv', index=False, encoding='utf-8-sig')
+    # standardizes data
+    scaled_numeric = scaler.fit_transform(df_numeric)
+    scaled_df = pd.DataFrame(scaled_numeric, index=df.index, columns=df_numeric.columns)
 
-# Place big five stats into numpy array for features
-X = scaled_df[['TRB', 'AST', 'STL', 'BLK', 'PTS']].to_numpy()
-print(X.shape)
+    # reconcatenates non-continuous data
+    new_columns_df = pd.DataFrame({'Rk': rank, 'Player': players, 'Pos': pos, 'Tm': team, 'allstar_selected': allstar_selected})
+    scaled_df = pd.concat([new_columns_df, scaled_df], axis=1)
+    return scaled_df
 
-# Place allstar_selected into numpy array for label
-y = scaled_df[['allstar_selected']].to_numpy()
-print(y.shape)
+# function to add allstar selections to data
+def add_allstars(df, allstars):
+    df['allstar_selected'] = 0
+    df.loc[df['Player'].isin(allstars), 'allstar_selected'] = 1
 
-# Make logistic regression model and print coefficients
-logreg = LogisticRegression(random_state=16)
-logreg.fit(X, np.ravel(y))
-print("Coefficients for trb, ast, strl, blk, pts: " + str(logreg.coef_))
+allstars = ["Kyrie Irving",
+            "Donovan Mitchell",
+            "Giannis Antetokounmpo",
+            "Kevin Durant",
+            "Jayson Tatum",
+            "Jaylen Brown",
+            "DeMar DeRozan",
+            "Tyrese Haliburton",
+            "Jrue Holiday",
+            "Julius Randle",
+            "Bam Adebayo",
+            "Joel Embiid",
+            "Pascal Siakam",
+            "Stephen Curry",
+            "Luka Doncic",
+            "Nikola Jokic",
+            "LeBron James",
+            "Zion Williamson",
+            "Shai Gilgeous-Alexander",
+            "Damian Lillard",
+            "Ja Morant",
+            "Paul George",
+            "Jaren Jackson Jr.",
+            "Lauri Markkanen",
+            "Domantas Sabonis",
+            "Anthony Edwards",
+            "De'Aaron Fox"]
 
-X2 = scaled_df[['TRB', 'AST', 'PTS']].to_numpy()
-# print("PTS, AST, TRB: ", X.shape)
-reg2 = LogisticRegression(random_state=16)
-reg2.fit(X2, np.ravel(y))
-print("Coefficients for trb, ast, pts: " + str(reg2.coef_))
+add_allstars(df, allstars)
 
-X3 = scaled_df[['AST', 'PTS']].to_numpy()
-# print("PTS, AST, TRB: ", X.shape)
-reg3 = LogisticRegression(random_state=16)
-reg3.fit(X3, np.ravel(y))
-print("Coefficients for ast, pts: " + str(reg3.coef_))
+run_logistic_regression(df, ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
 
-X4 = scaled_df[["FT",  "FTA", "FT%"]].to_numpy()
-# print("PTS, AST, TRB: ", X.shape)
-reg4 = LogisticRegression(random_state=16)
-reg4.fit(X4, np.ravel(y))
-print("Coefficients for ft, fta, ft%: " + str(reg4.coef_))
+run_logistic_regression(df, ['TRB', 'AST', 'PTS'])
+
+run_logistic_regression(df, ['AST', 'PTS'])
+
+run_logistic_regression(df, ['FT', 'FTA', 'FT%'])
+
+print("Centers with big 5 stats: ")
+run_logistic_regression(df.loc[df['Pos'] == 'C'], ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
+
+print("Shooting guards with big 5 stats: ")
+run_logistic_regression(df.loc[df['Pos'] == 'SG'], ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
+
+print("Power forwards with big 5 stats: ")
+run_logistic_regression(df.loc[df['Pos'] == 'PF'], ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
+
+print("Small forwards with big 5 stats: ")
+run_logistic_regression(df.loc[df['Pos'] == 'SF'], ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
+
+print("Point guards with big 5 stats: ")
+run_logistic_regression(df.loc[df['Pos'] == 'PG'], ['TRB', 'AST', 'STL', 'BLK', 'PTS'])
