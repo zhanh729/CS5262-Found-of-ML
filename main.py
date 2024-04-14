@@ -93,7 +93,8 @@ def regress_sets_of_n(df, stats, test_list, n):
 # function to run logistic regression
 def run_logistic_regression(df, stats, test_list):
     # scales the data
-    df_scaled = scale(df)
+    df_reduced = reduce_players(df, 1)
+    df_scaled = scale(df_reduced)
 
     # creates features and target arrays
     X = df_scaled[stats].to_numpy()
@@ -147,6 +148,18 @@ def scale(df):
     new_columns_df = pd.DataFrame({'Rk': rank, 'Player': players, 'Pos': pos, 'Tm': team, 'allstar_selected': allstar_selected})
     scaled_df = pd.concat([new_columns_df, scaled_df], axis=1)
     return scaled_df
+
+def reduce_players(df, num):
+    # reduce non-allstar players to num
+    df_non_allstar = df.loc[df['allstar_selected'] == 0]
+    df_reduced = df_non_allstar.sample(n = len(df_non_allstar) // num)
+
+    # combine allstars back into dataframe
+    df_allstar = df.loc[df['allstar_selected'] == 1]
+    df_combined = pd.concat([df_reduced, df_allstar], axis=0)
+
+    # shuffle dataframe
+    return df_combined.sample(frac = 1)
 
 def get_pos(df, pos):
     return df.loc[df['Pos'].isin(pos)]
